@@ -109,8 +109,11 @@ Invoked by `/usage-statusline:setup` with `${CLAUDE_PLUGIN_ROOT}`. Uses `$HOME`
    file in the same dir, then `mv` over the original (atomic). If
    `settings.json` is a symlink (dotfiles), write through it instead so the
    link survives.
-6a. If the existing `settings.json` is not valid JSON: print an error, exit
-   3, change nothing.
+6a. If the existing `settings.json` is not a JSON object, or any write step
+   fails: print the error, exit 3, leave settings.json unchanged. An empty
+   settings.json is treated as missing.
+6b. If the existing statusLine already equals the desired entry: refresh the
+   script copy only; do not rewrite settings.json or overwrite the backup.
 7. Idempotent: running twice yields the same settings.json.
 
 ### commands/setup.md

@@ -70,3 +70,33 @@ h="$(new_home)"
 out="$(HOME="$h" PATH=/nonexistent "$BASH" "$SETUP" 2>&1)"; code=$?
 assert_eq "setup/no-jq-exit" "1" "$code"
 assert_true "setup/no-jq-hint" grep -q "install jq" <<<"$out"
+
+# settings.json that is valid JSON but not an object is left alone
+h="$(new_home)"; mkdir -p "$h/.claude"
+echo '[]' > "$h/.claude/settings.json"
+run_setup "$h"
+assert_eq "setup/non-object-exit" "3" "$code"
+assert_eq "setup/non-object-unchanged" '[]' "$(cat "$h/.claude/settings.json")"
+
+# empty settings.json is treated like a missing one
+h="$(new_home)"; mkdir -p "$h/.claude"
+: > "$h/.claude/settings.json"
+run_setup "$h"
+assert_eq "setup/empty-file-exit" "0" "$code"
+assert_eq "setup/empty-file-entry" "$WANT_ENTRY" "$(jq -c .statusLine "$h/.claude/settings.json")"
+
+# dangling symlink whose target can't be written: fail, don't claim success
+h="$(new_home)"; mkdir -p "$h/.claude"
+ln -s "$h/missing-dir/settings.json" "$h/.claude/settings.json"
+run_setup "$h"
+assert_eq "setup/dangling-symlink-exit" "3" "$code"
+assert_true "setup/dangling-symlink-no-success-msg" test -z "$(grep Installed <<<"$out")"
+
+# re-running after --force keeps the backup of the user's original statusLine
+h="$(new_home)"; mkdir -p "$h/.claude"
+echo '{"statusLine":{"type":"command","command":"mine.sh"}}' > "$h/.claude/settings.json"
+cp "$h/.claude/settings.json" "$h/original.json"
+run_setup "$h" --force
+run_setup "$h"
+assert_eq "setup/rerun-after-force-exit" "0" "$code"
+assert_true "setup/rerun-after-force-backup-kept" cmp -s "$h/original.json" "$h/.claude/settings.json.bak"

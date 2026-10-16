@@ -3,7 +3,7 @@
 # statusLine in ~/.claude/settings.json at it.
 # Usage: setup.sh [--force]
 # Exit: 0 ok, 1 jq missing, 2 different statusLine exists (use --force),
-#       3 settings.json is not valid JSON.
+#       3 settings.json is not a JSON object or could not be written (unchanged).
 set -u
 
 SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -24,42 +24,56 @@ if ! command -v jq >/dev/null 2>&1; then
   exit 1
 fi
 
-if [ -e "$SETTINGS" ]; then
-  if ! jq empty "$SETTINGS" >/dev/null 2>&1; then
-    echo "$SETTINGS is not valid JSON; not modified."
-    exit 3
+tmp=""
+fail() {
+  [ -n "$tmp" ] && rm -f "$tmp"
+  echo "$1; $SETTINGS not modified."
+  exit 3
+}
+
+install_script() {
+  mkdir -p "$(dirname "$DEST")" && cp "$SCRIPTS_DIR/statusline.sh" "$DEST" \
+    || fail "could not copy the script to $DEST"
+}
+
+# A missing or empty settings.json is treated as {}.
+if [ -s "$SETTINGS" ]; then
+  if ! err="$(jq -e 'type == "object"' "$SETTINGS" 2>&1 >/dev/null)"; then
+    fail "$SETTINGS is not a valid JSON object${err:+ ($err)}"
   fi
   existing="$(jq -c '.statusLine // empty' "$SETTINGS")"
-  if [ -n "$existing" ] && [ "$existing" != "$ENTRY" ] && [ "$force" -eq 0 ]; then
+  if [ "$existing" = "$ENTRY" ]; then
+    # Already installed: refresh the script, keep settings and backup as-is.
+    install_script
+    echo "Already installed; script refreshed."
+    exit 0
+  fi
+  if [ -n "$existing" ] && [ "$force" -eq 0 ]; then
     echo "existing statusLine: $existing"
     echo "Re-run with --force to replace it."
     exit 2
   fi
+  has_settings=1
+else
+  has_settings=0
 fi
 
-mkdir -p "$(dirname "$DEST")"
-cp "$SCRIPTS_DIR/statusline.sh" "$DEST"
+install_script
 
-if [ -e "$SETTINGS" ]; then
-  cp "$SETTINGS" "$SETTINGS.bak"
-  src="$SETTINGS"
+tmp="$(mktemp "$CLAUDE_DIR/settings.XXXXXX")" || fail "could not create a temp file"
+if [ "$has_settings" -eq 1 ]; then
+  cp "$SETTINGS" "$SETTINGS.bak" || fail "could not back up settings"
+  jq --argjson sl "$ENTRY" '.statusLine = $sl' "$SETTINGS" > "$tmp" || fail "could not update settings"
 else
-  src=/dev/null
-fi
-
-tmp="$(mktemp "$CLAUDE_DIR/settings.XXXXXX")"
-if [ "$src" = /dev/null ]; then
-  jq -n --argjson sl "$ENTRY" '{statusLine: $sl}' > "$tmp"
-else
-  jq --argjson sl "$ENTRY" '.statusLine = $sl' "$src" > "$tmp"
+  jq -n --argjson sl "$ENTRY" '{statusLine: $sl}' > "$tmp" || fail "could not create settings"
 fi
 
 if [ -L "$SETTINGS" ]; then
   # Write through the symlink so dotfile setups keep their link.
-  cat "$tmp" > "$SETTINGS"
+  cat "$tmp" > "$SETTINGS" 2>/dev/null || fail "could not write through symlink"
   rm -f "$tmp"
 else
-  mv "$tmp" "$SETTINGS"
+  mv "$tmp" "$SETTINGS" || fail "could not replace settings"
 fi
 
 echo "Installed. Restart Claude Code or start a new session to see the status line."
