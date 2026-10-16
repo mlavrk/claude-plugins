@@ -2,12 +2,9 @@
 //   ctx 42% · 5h 31% (16:45) · 7d 58% (Mon 09:00)
 // Only a percentage over its threshold carries a color; the rest is drawn gray.
 
-export type UsageLimit = { kind: string; percentUsed: number; resetsAt?: string }
+import type { UsageLimit, UsageSnapshot } from '../types'
 
-export type UsageSnapshot = {
-  contextPercent: number | null
-  limits: UsageLimit[]
-}
+export type { UsageLimit, UsageSnapshot }
 
 export type Segment = { text: string; color?: 'yellow' | 'red' }
 

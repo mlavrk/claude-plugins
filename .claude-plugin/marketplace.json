@@ -8,7 +8,7 @@
     {
       "name": "usage-statusline",
       "source": "./plugins/usage-statusline",
-      "description": "Status line with context usage and 5h/7d rate limits with reset times"
+      "description": "Context usage and 5h/7d rate limits with reset times, right-aligned under the prompt hint"
     }
   ]
 }

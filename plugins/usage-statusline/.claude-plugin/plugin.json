@@ -1,6 +1,9 @@
 {
   "name": "usage-statusline",
-  "version": "0.1.0",
-  "description": "Status line with context usage and 5h/7d rate limits with reset times",
-  "author": { "name": "mlavrk" }
+  "version": "0.2.0",
+  "description": "Context usage and 5h/7d rate limits with reset times, right-aligned under the prompt hint",
+  "author": {
+    "name": "mlavrk"
+  },
+  "types": "./types/index.d.ts"
 }

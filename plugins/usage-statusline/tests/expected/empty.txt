@@ -1,1 +1,0 @@
-ctx {gray}—{/} │ 5h {gray}—{/} │ 7d {gray}—{/}
