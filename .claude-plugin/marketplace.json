@@ -1,0 +1,14 @@
+{
+  "name": "mlavrk",
+  "owner": {
+    "name": "mlavrk"
+  },
+  "description": "Personal Claude Code plugins and skills by mlavrk",
+  "plugins": [
+    {
+      "name": "usage-statusline",
+      "source": "./plugins/usage-statusline",
+      "description": "Status line with context usage and 5h/7d rate limits with reset times"
+    }
+  ]
+}
