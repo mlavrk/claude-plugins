@@ -82,7 +82,7 @@ ctx 42% │ 5h 31% ↻16:45 │ 7d 58% ↻Mon 09:00
   | 5h / 7d limits  | < 75       | 75 – 89  | ≥ 90  |
   | context         | < 35       | 35 – 49  | ≥ 50  |
 
-  Thresholds compare the unrounded value. Labels, separators and reset times
+  Thresholds compare the rounded (displayed) value, so a shown `90%` is always red. Labels, separators and reset times
   are uncolored. `—` is gray.
 - All parsing, coloring and formatting happen in a single `jq` invocation.
 - `NOW` env var (epoch seconds) overrides the current time; used by tests for
@@ -106,7 +106,11 @@ Invoked by `/usage-statusline:setup` with `${CLAUDE_PLUGIN_ROOT}`. Uses `$HOME`
    not passed: print the existing value, exit 2, change nothing in
    settings.json.
 6. Otherwise back up to `settings.json.bak`, write the merged JSON to a temp
-   file in the same dir, then `mv` over the original (atomic).
+   file in the same dir, then `mv` over the original (atomic). If
+   `settings.json` is a symlink (dotfiles), write through it instead so the
+   link survives.
+6a. If the existing `settings.json` is not valid JSON: print an error, exit
+   3, change nothing.
 7. Idempotent: running twice yields the same settings.json.
 
 ### commands/setup.md
