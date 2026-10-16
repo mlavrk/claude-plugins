@@ -8,6 +8,9 @@ const usage = atom({ plugin: 'usage-statusline', key: 'usage' } as const, null)
 
 const EMPTY: UsageSnapshot = { contextPercent: null, limits: [] }
 
+// The hint line is indented 2 columns; keep the same gap on the right.
+const SIDE_GAPS = 4
+
 function snapshot(context: SessionContextUsage, rateLimits: SessionRateLimit[]): UsageSnapshot {
   return {
     contextPercent: context.percent ?? null,
@@ -37,11 +40,15 @@ export const register: Register = on => {
     const u = (await read($, usage)) ?? EMPTY
     const now = await $.clock.now()
     const { Box, Text } = $.ui.resolve(e)
+    // The engine refuses a width on any Box holding its node, so only the row
+    // is sized, from the terminal width (the hook re-runs on resize).
+    const columns = e.viewport?.columns
+    const width = columns === undefined ? undefined : Math.max(columns - SIDE_GAPS, 0)
 
     return (
       <Box flexDirection="column">
         {own}
-        <Box key="usage-row" justifyContent="flex-end">
+        <Box key="usage-row" justifyContent="flex-end" width={width}>
           <Text color="gray">
             {formatUsage(u, now).map(s => (s.color ? <Text color={s.color}>{s.text}</Text> : s.text))}
           </Text>

@@ -26,20 +26,30 @@ const MEASURE: SessionMeasureInput = {
   changed: ['context', 'rateLimits'],
 }
 
-test('row sits under the engine hint line, right-aligned', async ($, on) => {
+test('row sits under the engine hint line, right-aligned to the terminal width', async ($, on) => {
   engine(on)
   await $.session.measure(MEASURE)
 
   for (const surface of SURFACES) {
-    const ui = await $.ui.mount({ ...HINT, surface })
+    const ui = await $.ui.mount({ ...HINT, surface, viewport: { columns: 120, rows: 40 } })
     const tree = (await ui.drawn()) as any
 
     expect(tree.type).toBe('Box')
     expect(tree.props.flexDirection).toBe('column')
+    // The engine refuses a width on any Box that holds its node.
+    expect(tree.props.width).toBeUndefined()
     expect(tree.children[0].type).toBe('engine')
+    // The row spans the hint line's width (2-column indent each side).
     expect(tree.children[1].props.justifyContent).toBe('flex-end')
+    expect(tree.children[1].props.width).toBe(116)
     await ui.unmount()
   }
+})
+
+test('without a measured width the row is drawn unsized', async ($, on) => {
+  engine(on)
+  const ui = await $.ui.mount({ ...HINT, surface: 'terminal' })
+  expect(((await ui.drawn()) as any).children[1].props.width).toBeUndefined()
 })
 
 test('row reads the usage line in gray, coloring only hot percentages', async ($, on) => {
