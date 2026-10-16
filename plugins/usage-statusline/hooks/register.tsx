@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import type { Register, SessionContextUsage, SessionRateLimit } from 'claude-code'
+import type { EngineInterface, Register, SessionContextUsage, SessionRateLimit, Timer } from 'claude-code'
 
 import type { UsageSnapshot } from '../types'
 import { formatUsage } from './format'
@@ -20,17 +20,33 @@ function snapshot(context: SessionContextUsage, rateLimits: SessionRateLimit[]):
   }
 }
 
+let resetTimer: Timer | undefined
+
+// Store a snapshot and redraw again at the next reset, when a figure expires.
+async function store($: EngineInterface, u: UsageSnapshot) {
+  await update($, usage, () => u)
+  resetTimer?.cancel()
+  resetTimer = undefined
+  const now = await $.clock.now()
+  const next = Math.min(
+    ...u.limits.map(l => (l.resetsAt === undefined ? NaN : Date.parse(l.resetsAt))).filter(ms => ms > now),
+  )
+  if (Number.isFinite(next)) {
+    resetTimer = $.clock.after(next - now, () => $.ui.invalidate('ui.render'))
+  }
+}
+
 export const register: Register = on => {
   // Seed on start (and after a hot reload, which raises session.start again).
   on('session.start', async ($, e, next) => {
     const result = await next(e)
     const u = await $.session.usage()
-    await update($, usage, () => snapshot(u.context, u.rateLimits))
+    await store($, snapshot(u.context, u.rateLimits))
     return result
   })
 
   on('session.measure', async ($, e, next) => {
-    await update($, usage, () => snapshot(e.context, e.rateLimits))
+    await store($, snapshot(e.context, e.rateLimits))
     return next(e)
   })
 
@@ -41,8 +57,9 @@ export const register: Register = on => {
     const now = await $.clock.now()
     const { Box, Text } = $.ui.resolve(e)
     // The engine refuses a width on any Box holding its node, so only the row
-    // is sized, from the terminal width (the hook re-runs on resize).
-    const columns = e.viewport?.columns
+    // is sized, from the terminal width (the hook re-runs on resize). Other
+    // surfaces lay the hint out differently; they get the row unsized.
+    const columns = e.surface === 'terminal' ? e.viewport?.columns : undefined
     const width = columns === undefined ? undefined : Math.max(columns - SIDE_GAPS, 0)
 
     return (

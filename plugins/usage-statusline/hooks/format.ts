@@ -37,8 +37,14 @@ function reset(resetsAt: string | undefined, nowMs: number, local: LocalTime): s
   return at.date === local(nowMs).date ? ` (${at.hm})` : ` (${at.weekday} ${at.hm})`
 }
 
+/** Whether the window's reset time has passed: its figure no longer holds. */
+export function isExpired(l: UsageLimit, nowMs: number): boolean {
+  const ms = l.resetsAt === undefined ? NaN : Date.parse(l.resetsAt)
+  return !Number.isNaN(ms) && ms <= nowMs
+}
+
 function limit(label: string, l: UsageLimit | undefined, nowMs: number, local: LocalTime): Segment[] {
-  if (!l) return [{ text: `${label} ` }, { text: '—' }]
+  if (!l || isExpired(l, nowMs)) return [{ text: `${label} ` }, { text: '—' }]
   return [{ text: `${label} ` }, percent(l.percentUsed, 75, 90), { text: reset(l.resetsAt, nowMs, local) }]
 }
 

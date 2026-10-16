@@ -95,6 +95,11 @@ describe('formatUsage', () => {
     )
   })
 
+  test('a window whose reset time has passed shows a dash', () => {
+    const later = Date.parse('2026-10-17T00:00:00Z') // past R5, before R7
+    expect(line(formatUsage(snap(42, 91, 58), later, UTC))).toBe('ctx 42% · 5h — · 7d 58% (Mon 09:00)')
+  })
+
   test('default local time formats HH:MM', () => {
     expect(line(formatUsage(snap(42, 31), NOW))).toMatch(/5h 31% \((\w{3} )?\d\d:\d\d\)/)
   })

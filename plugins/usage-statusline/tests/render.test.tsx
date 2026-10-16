@@ -7,7 +7,7 @@ function engine(on: On) {
   on('ui.render', () => ({ type: 'engine', ref: 0 }) as const)
   on('session.measure', (_$, e) => ({ changed: e.changed }))
   on('session.start', () => ({ cwd: '/' }))
-  mock.clock(on, { now: Date.parse('2026-10-16T12:00:00Z') })
+  return mock.clock(on, { now: Date.parse('2026-10-16T12:00:00Z') })
 }
 
 const SURFACES = ['terminal', 'desktop'] as const
@@ -33,6 +33,8 @@ test('row sits under the engine hint line, right-aligned to the terminal width',
   for (const surface of SURFACES) {
     const ui = await $.ui.mount({ ...HINT, surface, viewport: { columns: 120, rows: 40 } })
     const tree = (await ui.drawn()) as any
+    // Sized only on the terminal, where the hint line's indent is known.
+    const width = surface === 'terminal' ? 116 : undefined
 
     expect(tree.type).toBe('Box')
     expect(tree.props.flexDirection).toBe('column')
@@ -41,7 +43,7 @@ test('row sits under the engine hint line, right-aligned to the terminal width',
     expect(tree.children[0].type).toBe('engine')
     // The row spans the hint line's width (2-column indent each side).
     expect(tree.children[1].props.justifyContent).toBe('flex-end')
-    expect(tree.children[1].props.width).toBe(116)
+    expect(tree.children[1].props.width).toBe(width)
     await ui.unmount()
   }
 })
@@ -89,4 +91,19 @@ test('session start seeds the row from the current usage', async ($, on) => {
 
   const ui = await $.ui.mount({ ...HINT, surface: 'terminal' })
   expect((await ui.find({ key: 'usage-row' }))?.text).toBe('ctx 12% · 5h 30% · 7d —')
+})
+
+test('row redraws when a window resets, dropping the stale figure', async ($, on) => {
+  const clock = engine(on)
+  await $.session.measure({
+    context: { window: 200_000, percent: 10 },
+    rateLimits: [{ kind: 'five_hour', percentUsed: 91, resetsAt: '2026-10-16T13:00:00Z' }],
+    changed: ['context', 'rateLimits'],
+  })
+
+  const ui = await $.ui.mount({ ...HINT, surface: 'terminal' })
+  expect((await ui.find({ key: 'usage-row' }))?.text).toMatch(/^ctx 10% · 5h 91% \(/)
+
+  await clock.advance(2 * 60 * 60 * 1000)
+  expect((await ui.find({ key: 'usage-row' }))?.text).toBe('ctx 10% · 5h — · 7d —')
 })
