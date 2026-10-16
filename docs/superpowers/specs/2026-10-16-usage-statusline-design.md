@@ -1,7 +1,7 @@
 # usage-statusline plugin + personal marketplace — design
 
 Date: 2026-10-16
-Status: approved in conversation, pending spec review
+Status: superseded by 2026-10-16-usage-statusline-mod-design.md (v0.2.0)
 
 ## Goal
 
