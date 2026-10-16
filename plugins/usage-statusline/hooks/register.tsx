@@ -1,10 +1,12 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, SessionContextUsage, SessionRateLimit, Timer } from 'claude-code'
 
-import type { UsageSnapshot } from '../types'
+import type { CacheState, UsageSnapshot } from '../types'
 import { formatUsage } from './format'
 
 const usage = atom({ plugin: 'usage-statusline', key: 'usage' } as const, null)
+const NO_CACHE: CacheState = { last: null, coldNext: false }
+const cache = atom({ plugin: 'usage-statusline', key: 'cache' } as const, NO_CACHE)
 
 const EMPTY: UsageSnapshot = { contextPercent: null, limits: [] }
 
@@ -42,6 +44,37 @@ export const register: Register = on => {
     const result = await next(e)
     const u = await $.session.usage()
     await store($, snapshot(u.context, u.rateLimits))
+    // A fresh session's first turn is cold by design. A hot reload comes after
+    // prompts were sent: the reading stands.
+    if ((await $.session.turns()) === 0) await update($, cache, () => ({ last: null, coldNext: true }))
+    return result
+  })
+
+  // So is the first turn after a compaction, which rewrites the whole prefix.
+  on('session.compact', async ($, e, next) => {
+    const result = await next(e)
+    if (result.skip === undefined) await update($, cache, c => ({ ...c, coldNext: true }))
+    return result
+  })
+
+  // The main loop's turns only: a subagent's run has a cache of its own.
+  on('turn.complete', async ($, e, next) => {
+    const result = await next(e)
+    if (e.agentId !== undefined) return result
+    const u = e.usage
+    await update($, cache, c =>
+      u === undefined
+        ? { ...c, last: null }
+        : {
+            last: {
+              read: u.cache_read_input_tokens,
+              written: u.cache_creation_input_tokens,
+              uncached: u.input_tokens,
+              expectedCold: c.coldNext,
+            },
+            coldNext: false,
+          },
+    )
     return result
   })
 
@@ -54,6 +87,7 @@ export const register: Register = on => {
   on('ui.render', { component: 'PromptHint' }, async ($, e, next) => {
     const own = await next(e)
     const u = (await read($, usage)) ?? EMPTY
+    const c = (await read($, cache)) ?? NO_CACHE
     const now = await $.clock.now()
     const { Box, Text } = $.ui.resolve(e)
     // The engine refuses a width on any Box holding its node, so only the row
@@ -67,7 +101,7 @@ export const register: Register = on => {
         {own}
         <Box key="usage-row" justifyContent="flex-end" width={width}>
           <Text color="gray">
-            {formatUsage(u, now).map(s => (s.color ? <Text color={s.color}>{s.text}</Text> : s.text))}
+            {formatUsage(u, c.last, now).map(s => (s.color ? <Text color={s.color}>{s.text}</Text> : s.text))}
           </Text>
         </Box>
       </Box>

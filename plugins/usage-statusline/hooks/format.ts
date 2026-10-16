@@ -1,10 +1,10 @@
-// Turns a usage snapshot into the row's text segments:
-//   ctx 42% · 5h 31% (16:45) · 7d 58% (Mon 09:00)
-// Only a percentage over its threshold carries a color; the rest is drawn gray.
+// Turns a usage snapshot and the last cache reading into the row's segments:
+//   ctx 42% · cache 96% +6k · 5h 31% (16:45) · 7d 58% (Mon 09:00)
+// Only a percentage past its threshold carries a color; the rest is drawn gray.
 
-import type { UsageLimit, UsageSnapshot } from '../types'
+import type { CacheReading, UsageLimit, UsageSnapshot } from '../types'
 
-export type { UsageLimit, UsageSnapshot }
+export type { CacheReading, UsageLimit, UsageSnapshot }
 
 export type Segment = { text: string; color?: 'yellow' | 'red' }
 
@@ -37,6 +37,22 @@ function reset(resetsAt: string | undefined, nowMs: number, local: LocalTime): s
   return at.date === local(nowMs).date ? ` (${at.hm})` : ` (${at.weekday} ${at.hm})`
 }
 
+const tokens = (n: number) => (n < 1000 ? String(n) : `${Math.round(n / 1000)}k`)
+
+// The cache hit rate is good when high: gray from 80, yellow from 50, else red,
+// unless the turn was cold by design.
+function cache(c: CacheReading | null): Segment[] {
+  const total = c === null ? 0 : c.read + c.written + c.uncached
+  if (c === null || total === 0) return [{ text: 'cache ' }, { text: '—' }]
+  const r = Math.round((c.read / total) * 100)
+  const color = c.expectedCold ? undefined : r < 50 ? 'red' : r < 80 ? 'yellow' : undefined
+  return [
+    { text: 'cache ' },
+    color ? { text: `${r}%`, color } : { text: `${r}%` },
+    { text: c.written > 0 ? ` +${tokens(c.written)}` : '' },
+  ]
+}
+
 /** Whether the window's reset time has passed: its figure no longer holds. */
 export function isExpired(l: UsageLimit, nowMs: number): boolean {
   const ms = l.resetsAt === undefined ? NaN : Date.parse(l.resetsAt)
@@ -50,6 +66,7 @@ function limit(label: string, l: UsageLimit | undefined, nowMs: number, local: L
 
 export function formatUsage(
   u: UsageSnapshot,
+  c: CacheReading | null,
   nowMs: number,
   local: LocalTime = systemLocalTime,
 ): Segment[] {
@@ -57,6 +74,8 @@ export function formatUsage(
   const segments: Segment[] = [
     { text: 'ctx ' },
     percent(u.contextPercent, 35, 50),
+    { text: ' · ' },
+    ...cache(c),
     { text: ' · ' },
     ...limit('5h', find('five_hour'), nowMs, local),
     { text: ' · ' },

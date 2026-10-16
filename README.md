@@ -15,10 +15,15 @@ A mod that adds a row under the prompt hint line (where "auto mode on"
 shows), right-aligned:
 
 ```
-ctx 42% · 5h 31% (16:45) · 7d 58% (Mon 09:00)
+ctx 42% · cache 96% +6k · 5h 31% (16:45) · 7d 58% (Mon 09:00)
 ```
 
 - `ctx`: share of the context window used.
+- `cache`: the last turn's prompt-cache hit rate (input read from the cache
+  over all input), and `+N` the tokens it wrote to the cache. A low rate
+  means the context was re-sent at full price: after `/model`, after the
+  cache expired while idle, or when something rewrote the prompt (an MCP
+  server, a plugin reload, a CLAUDE.md edit). Subagents' turns don't count.
 - `5h` / `7d`: share of the 5-hour and weekly limits **used**, with the local
   reset time (`HH:MM` today, otherwise weekday + time).
 - `—` means Claude Code hasn't reported that value yet. Limits appear after
@@ -29,6 +34,11 @@ ctx 42% · 5h 31% (16:45) · 7d 58% (Mon 09:00)
 |---|---|---|---|
 | 5h / 7d limits | < 75% | 75–89% | ≥ 90% |
 | context | < 35% | 35–49% | ≥ 50% |
+| cache | ≥ 80% | 50–79% | < 50% |
+
+The first turn of a session and the first after a compaction are cold by
+design, so their cache rate stays gray. (Where an organization manages
+Claude Code, the compaction isn't seen and that turn is colored.)
 
 **Install**, at the prompt of a terminal session:
 

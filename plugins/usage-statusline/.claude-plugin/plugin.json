@@ -1,7 +1,7 @@
 {
   "name": "usage-statusline",
-  "version": "0.2.0",
-  "description": "Context usage and 5h/7d rate limits with reset times, right-aligned under the prompt hint",
+  "version": "0.3.0",
+  "description": "Context usage, prompt-cache hit rate and 5h/7d rate limits with reset times, right-aligned under the prompt hint",
   "author": {
     "name": "mlavrk"
   },
