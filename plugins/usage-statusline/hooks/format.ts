@@ -1,5 +1,6 @@
 // Turns a usage snapshot and the last cache reading into the row's segments:
-//   ctx 42% · cache 96% +6k · 5h 31% (16:45) · 7d 58% (Mon 09:00)
+//   ctx 42% · cache 96% +6k · 5h 69% (16:45) · 7d 42% (Mon 09:00)
+// Context shows the share used; each limit shows the share left, like a battery.
 // Only a percentage past its threshold carries a color; the rest is drawn gray.
 
 import type { CacheReading, UsageLimit, UsageSnapshot } from '../types'
@@ -27,6 +28,13 @@ function percent(value: number | null | undefined, warn: number, crit: number): 
   if (value === null || value === undefined) return { text: '—' }
   const r = Math.round(value)
   const color = r >= crit ? 'red' : r >= warn ? 'yellow' : undefined
+  return color ? { text: `${r}%`, color } : { text: `${r}%` }
+}
+
+// A limit is good when much is left: gray above 25, yellow from 25, red from 10.
+function left(percentUsed: number): Segment {
+  const r = Math.round(Math.max(0, 100 - percentUsed))
+  const color = r <= 10 ? 'red' : r <= 25 ? 'yellow' : undefined
   return color ? { text: `${r}%`, color } : { text: `${r}%` }
 }
 
@@ -61,7 +69,7 @@ export function isExpired(l: UsageLimit, nowMs: number): boolean {
 
 function limit(label: string, l: UsageLimit | undefined, nowMs: number, local: LocalTime): Segment[] {
   if (!l || isExpired(l, nowMs)) return [{ text: `${label} ` }, { text: '—' }]
-  return [{ text: `${label} ` }, percent(l.percentUsed, 75, 90), { text: reset(l.resetsAt, nowMs, local) }]
+  return [{ text: `${label} ` }, left(l.percentUsed), { text: reset(l.resetsAt, nowMs, local) }]
 }
 
 export function formatUsage(

@@ -15,7 +15,7 @@ A mod that adds a row under the prompt hint line (where "auto mode on"
 shows), right-aligned:
 
 ```
-ctx 42% · cache 96% +6k · 5h 31% (16:45) · 7d 58% (Mon 09:00)
+ctx 42% · cache 96% +6k · 5h 69% (16:45) · 7d 42% (Mon 09:00)
 ```
 
 - `ctx`: share of the context window used.
@@ -24,7 +24,8 @@ ctx 42% · cache 96% +6k · 5h 31% (16:45) · 7d 58% (Mon 09:00)
   means the context was re-sent at full price: after `/model`, after the
   cache expired while idle, or when something rewrote the prompt (an MCP
   server, a plugin reload, a CLAUDE.md edit). Subagents' turns don't count.
-- `5h` / `7d`: share of the 5-hour and weekly limits **used**, with the local
+- `5h` / `7d`: share of the 5-hour and weekly limits **left**, like a battery
+  (100% is a fresh window, 0% means you've hit the limit), with the local
   reset time (`HH:MM` today, otherwise weekday + time).
 - `—` means Claude Code hasn't reported that value yet. Limits appear after
   the first reply in a session, and only on Pro/Max plans.
@@ -32,8 +33,8 @@ ctx 42% · cache 96% +6k · 5h 31% (16:45) · 7d 58% (Mon 09:00)
 
 | metric | gray | yellow | red |
 |---|---|---|---|
-| 5h / 7d limits | < 75% | 75–89% | ≥ 90% |
-| context | < 35% | 35–49% | ≥ 50% |
+| 5h / 7d limits left | > 25% | 11–25% | ≤ 10% |
+| context used | < 35% | 35–49% | ≥ 50% |
 | cache | ≥ 80% | 50–79% | < 50% |
 
 The first turn of a session and the first after a compaction are cold by

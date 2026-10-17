@@ -30,7 +30,7 @@ const MEASURE: SessionMeasureInput = {
   context: { window: 200_000, tokens: 84_000, percent: 42 },
   rateLimits: [
     { kind: 'five_hour', percentUsed: 91 },
-    { kind: 'seven_day', percentUsed: 58 },
+    { kind: 'seven_day', percentUsed: 60 },
   ],
   changed: ['context', 'rateLimits'],
 }
@@ -63,7 +63,7 @@ test('without a measured width the row is drawn unsized', async ($, on) => {
   expect(((await ui.drawn()) as any).children[1].props.width).toBeUndefined()
 })
 
-test('row reads the usage line in gray, coloring only hot percentages', async ($, on) => {
+test('row reads the usage line in gray, coloring only percentages past their threshold', async ($, on) => {
   engine(on)
   await $.session.measure(MEASURE)
 
@@ -71,11 +71,11 @@ test('row reads the usage line in gray, coloring only hot percentages', async ($
     const ui = await $.ui.mount({ ...HINT, surface })
     const row = await ui.find({ key: 'usage-row' })
 
-    expect(row?.text).toBe('ctx 42% · cache — · 5h 91% · 7d 58%')
+    expect(row?.text).toBe('ctx 42% · cache — · 5h 9% · 7d 40%')
     expect((await ui.find({ type: 'Text', text: /^ctx / }))?.props.color).toBe('gray')
     expect((await ui.find({ type: 'Text', text: /^42%$/ }))?.props.color).toBe('yellow')
-    expect((await ui.find({ type: 'Text', text: /^91%$/ }))?.props.color).toBe('red')
-    expect(await ui.find({ type: 'Text', text: /^58%$/ })).toBeUndefined()
+    expect((await ui.find({ type: 'Text', text: /^9%$/ }))?.props.color).toBe('red')
+    expect(await ui.find({ type: 'Text', text: /^40%$/ })).toBeUndefined()
     await ui.unmount()
   }
 })
@@ -101,7 +101,7 @@ test('session start seeds the row from the current usage', async ($, on) => {
   await $.session.start({ source: 'startup', cwd: '/' } as any)
 
   const ui = await $.ui.mount({ ...HINT, surface: 'terminal' })
-  expect((await ui.find({ key: 'usage-row' }))?.text).toBe('ctx 12% · cache — · 5h 30% · 7d —')
+  expect((await ui.find({ key: 'usage-row' }))?.text).toBe('ctx 12% · cache — · 5h 70% · 7d —')
 })
 
 test('row redraws when a window resets, dropping the stale figure', async ($, on) => {
@@ -113,7 +113,7 @@ test('row redraws when a window resets, dropping the stale figure', async ($, on
   })
 
   const ui = await $.ui.mount({ ...HINT, surface: 'terminal' })
-  expect((await ui.find({ key: 'usage-row' }))?.text).toMatch(/^ctx 10% · cache — · 5h 91% \(/)
+  expect((await ui.find({ key: 'usage-row' }))?.text).toMatch(/^ctx 10% · cache — · 5h 9% \(/)
 
   await clock.advance(2 * 60 * 60 * 1000)
   expect((await ui.find({ key: 'usage-row' }))?.text).toBe('ctx 10% · cache — · 5h — · 7d —')
