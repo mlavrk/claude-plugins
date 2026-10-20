@@ -61,6 +61,43 @@ from `/plugin`.
 **Upgrading from 0.1.x (the bash status line):** delete the `statusLine`
 key from `~/.claude/settings.json` and `rm -r ~/.claude/statusline`.
 
+### slack-notify
+
+Lets the agent message you in Slack when you ask it to: "ping me in Slack
+when the tests finish", or in a `/loop`, "every 30 minutes check my MRs and
+send me new threads in Slack". The message arrives as a DM with a
+notification.
+
+**Set up the Slack side** once. A Workflow Builder workflow needs no app
+install, so it works where you can't add apps (paid Slack plans):
+
+1. Workflows → New → Build Workflow → **From a webhook**.
+2. Set up variables: one variable, key `text`, data type Text.
+3. Add the step **Send a message to a person**: send to yourself, and make
+   the message just the `text` variable.
+4. Publish, then copy the webhook URL (`https://hooks.slack.com/triggers/...`).
+
+An incoming webhook URL (`https://hooks.slack.com/services/...`) works too.
+
+**Install**, at the prompt of a terminal session, and paste the URL into the
+dialog:
+
+```
+/plugin install slack-notify@mlavrk
+```
+
+or from a shell: `claude plugin install slack-notify@mlavrk --config webhook_url=<url>`.
+To change the URL later: `/plugin configure slack-notify@mlavrk`.
+
+- Slack shows the text as sent, without formatting; the skill has the agent
+  write plain text with bare links.
+- Anyone with the URL can message you. It's stored in plain text under
+  `pluginConfigs` in `~/.claude/settings.json` and shows up in the
+  transcript of a session that sends a message, so keep that file out of
+  public dotfiles.
+- Works in local sessions, including `/loop`. Needs `curl` and `jq`
+  (macOS has both).
+
 ## Adding a plugin or skill
 
 1. Create `plugins/<name>/` with `.claude-plugin/plugin.json`
@@ -78,6 +115,8 @@ key from `~/.claude/settings.json` and `rm -r ~/.claude/statusline`.
 ```
 claude plugin validate plugins/usage-statusline
 claude plugin test plugins/usage-statusline
+claude plugin validate plugins/slack-notify
+bash plugins/slack-notify/tests/send.test.sh
 ```
 
-CI runs both on Ubuntu and macOS with a pinned Claude Code version.
+CI runs them on Ubuntu and macOS with a pinned Claude Code version.

@@ -1,0 +1,16 @@
+{
+  "name": "slack-notify",
+  "version": "0.1.0",
+  "description": "Lets the agent message you in Slack through a webhook, when you ask it to",
+  "author": {
+    "name": "mlavrk"
+  },
+  "userConfig": {
+    "webhook_url": {
+      "type": "string",
+      "title": "Slack webhook URL",
+      "description": "https://hooks.slack.com/... from a Workflow Builder webhook trigger (with a `text` variable) or an incoming webhook",
+      "required": true
+    }
+  }
+}
