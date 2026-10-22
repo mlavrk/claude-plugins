@@ -14,6 +14,11 @@ function engine(
   on('session.measure', (_$, e) => ({ changed: e.changed }))
   on('session.start', () => ({ cwd: '/' }))
   on('session.turns', () => ({ value: turns }))
+  on('session.model', () => ({ value: 'claude-opus-5-5' }))
+  on('turn.step', async function* (_$, e) {
+    return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn', usage: null } as any
+  })
+  on('classic.PostModelSwitch', () => ({}))
   on('session.compact', () => compact)
   on('turn.complete', (_$, e) => ({ text: e.answer }))
   return mock.clock(on, { now: Date.parse('2026-10-16T12:00:00Z') })
@@ -101,7 +106,7 @@ test('session start seeds the row from the current usage', async ($, on) => {
   await $.session.start({ source: 'startup', cwd: '/' } as any)
 
   const ui = await $.ui.mount({ ...HINT, surface: 'terminal' })
-  expect((await ui.find({ key: 'usage-row' }))?.text).toBe('ctx 12% · cache — · 5h 70% · 7d —')
+  expect((await ui.find({ key: 'usage-row' }))?.text).toBe('Opus · ctx 12% · cache — · 5h 70% · 7d —')
 })
 
 test('row redraws when a window resets, dropping the stale figure', async ($, on) => {
@@ -138,7 +143,7 @@ const turn = (read: number, written: number, uncached: number, agentId?: string)
   }) as any
 
 const cacheText = async (ui: { find: (q: any) => Promise<any> }) =>
-  (await ui.find({ key: 'usage-row' }))?.text.split(' · ')[1]
+  (await ui.find({ key: 'usage-row' }))?.text.split(' · ').find((x: string) => x.startsWith('cache'))
 
 test('a main-thread turn shows its cache hit rate and the tokens written', async ($, on) => {
   engine(on)
@@ -214,4 +219,58 @@ test('a reload mid-session keeps the reading and marks nothing cold', async ($, 
   expect(await cacheText(ui)).toBe('cache 94% +6k')
   await $.turn.complete(turn(10_000, 60_000, 30_000))
   expect((await ui.find({ type: 'Text', text: /^10%$/ }))?.props.color).toBe('red')
+})
+
+const modelText = async (ui: { find: (q: any) => Promise<any> }) =>
+  (await ui.find({ key: 'usage-row' }))?.text.split(' · ')[0]
+
+// One model request, drained, on the main loop unless an agent's id is given.
+async function step($: any, model: string, effort?: string, agentId?: string) {
+  const s = $.turn.step({
+    turnId: 't',
+    index: 0,
+    model,
+    messageCount: 1,
+    ...(effort === undefined ? {} : { effort }),
+    ...(agentId === undefined ? {} : { agentId }),
+  })
+  for await (const _ of s);
+}
+
+test('a main-loop request shows its model and effort ahead of the context', async ($, on) => {
+  engine(on)
+  on('session.usage', () => ({ value: NO_USAGE }))
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  const ui = await $.ui.mount({ ...HINT, surface: 'terminal' })
+  expect(await modelText(ui)).toBe('Opus')
+
+  await step($, 'claude-sonnet-5-5[1m]', 'xhigh')
+  expect((await ui.find({ key: 'usage-row' }))?.text).toBe('Sonnet (xhigh) · ctx — · cache — · 5h — · 7d —')
+  expect((await ui.find({ type: 'Text', text: /^Sonnet/ }))?.props.color).toBe('gray')
+})
+
+test("a subagent's request leaves the model alone", async ($, on) => {
+  engine(on)
+  await step($, 'claude-opus-5-5', 'high')
+  await step($, 'claude-haiku-5-5', 'low', 'agent-1')
+
+  const ui = await $.ui.mount({ ...HINT, surface: 'terminal' })
+  expect(await modelText(ui)).toBe('Opus (high)')
+})
+
+test('a model switch shows at once', async ($, on) => {
+  engine(on)
+  await step($, 'claude-opus-5-5', 'high')
+  const ui = await $.ui.mount({ ...HINT, surface: 'terminal' })
+
+  await $.classic.PostModelSwitch({
+    from_model: 'claude-opus-5-5',
+    to_model: 'claude-sonnet-5-5',
+    requested_model: 'sonnet',
+    source: 'command',
+    context_tokens: 0,
+    prompt_cache_warm: false,
+    cache_ttl: '5m',
+  } as any)
+  expect(await modelText(ui)).toBe('Sonnet (high)')
 })

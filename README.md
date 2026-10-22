@@ -15,9 +15,13 @@ A mod that adds a row under the prompt hint line (where "auto mode on"
 shows), right-aligned:
 
 ```
-ctx 42% · cache 96% +6k · 5h 69% (16:45) · 7d 42% (Mon 09:00)
+Opus (high) · ctx 42% · cache 96% +6k · 5h 69% (16:45) · 7d 42% (Mon 09:00)
 ```
 
+- `Opus (high)`: the main loop's model family, without its version, and in
+  parentheses the effort its last request was sent with (after any downgrade
+  the model forces). The effort appears once the first request is made, and
+  a `/model` switch shows at once. Subagents' requests don't count.
 - `ctx`: share of the context window used.
 - `cache`: the last turn's prompt-cache hit rate (input read from the cache
   over all input), and `+N` the tokens it wrote to the cache. A low rate

@@ -1,11 +1,11 @@
-// Turns a usage snapshot and the last cache reading into the row's segments:
-//   ctx 42% · cache 96% +6k · 5h 69% (16:45) · 7d 42% (Mon 09:00)
+// Turns the model, a usage snapshot and the last cache reading into the row's segments:
+//   Opus (high) · ctx 42% · cache 96% +6k · 5h 69% (16:45) · 7d 42% (Mon 09:00)
 // Context shows the share used; each limit shows the share left, like a battery.
 // Only a percentage past its threshold carries a color; the rest is drawn gray.
 
-import type { CacheReading, UsageLimit, UsageSnapshot } from '../types'
+import type { CacheReading, ModelState, UsageLimit, UsageSnapshot } from '../types'
 
-export type { CacheReading, UsageLimit, UsageSnapshot }
+export type { CacheReading, ModelState, UsageLimit, UsageSnapshot }
 
 export type Segment = { text: string; color?: 'yellow' | 'red' }
 
@@ -59,6 +59,24 @@ function cache(c: CacheReading | null): Segment[] {
     color ? { text: `${r}%`, color } : { text: `${r}%` },
     { text: c.written > 0 ? ` +${tokens(c.written)}` : '' },
   ]
+}
+
+const FAMILIES = ['fable', 'opus', 'sonnet', 'haiku']
+
+/** A model's family without its version: `claude-opus-5-5[1m]` → `Opus`. */
+export function modelName(id: string): string {
+  const family = FAMILIES.find(f => id.toLowerCase().includes(f))
+  if (family) return family[0]!.toUpperCase() + family.slice(1)
+  // Another vendor's id: drop a `[1m]` tag and the words that are versions.
+  const words = id.replace(/\[.*\]$/, '').split(/[-\s]/).filter(w => w && !/^v?\d/.test(w))
+  return words.join(' ') || id
+}
+
+/** The leading segment, `Opus (high) · `; the effort only once known, nothing before the model is. */
+export function formatModel(m: ModelState | null): Segment[] {
+  if (m === null || m.id === null) return []
+  const effort = m.effort === null ? '' : ` (${m.effort})`
+  return [{ text: `${modelName(m.id)}${effort} · ` }]
 }
 
 /** Whether the window's reset time has passed: its figure no longer holds. */

@@ -1,12 +1,14 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, SessionContextUsage, SessionRateLimit, Timer } from 'claude-code'
 
-import type { CacheState, UsageSnapshot } from '../types'
-import { formatUsage } from './format'
+import type { CacheState, ModelState, UsageSnapshot } from '../types'
+import { formatModel, formatUsage } from './format'
 
 const usage = atom({ plugin: 'usage-statusline', key: 'usage' } as const, null)
 const NO_CACHE: CacheState = { last: null, coldNext: false }
 const cache = atom({ plugin: 'usage-statusline', key: 'cache' } as const, NO_CACHE)
+const NO_MODEL: ModelState = { id: null, effort: null }
+const model = atom({ plugin: 'usage-statusline', key: 'model' } as const, NO_MODEL)
 
 const EMPTY: UsageSnapshot = { contextPercent: null, limits: [] }
 
@@ -44,6 +46,8 @@ export const register: Register = on => {
     const result = await next(e)
     const u = await $.session.usage()
     await store($, snapshot(u.context, u.rateLimits))
+    const id = await $.session.model()
+    await update($, model, m => ({ ...m, id }))
     // A fresh session's first turn is cold by design. A hot reload comes after
     // prompts were sent: the reading stands.
     if ((await $.session.turns()) === 0) await update($, cache, () => ({ last: null, coldNext: true }))
@@ -78,6 +82,20 @@ export const register: Register = on => {
     return result
   })
 
+  // Each main-loop request names the model and effort it is sent with, after
+  // any fallback or downgrade: the row shows what the model actually got.
+  on('turn.step', async function* ($, e, next) {
+    if (e.agentId === undefined) await update($, model, () => ({ id: e.model, effort: e.effort ?? null }))
+    return yield* next(e)
+  })
+
+  // `/model` shows at once; the effort stands until the next request reports it.
+  on('classic.PostModelSwitch', async ($, e, next) => {
+    const result = await next(e)
+    await update($, model, m => ({ ...m, id: e.to_model }))
+    return result
+  })
+
   on('session.measure', async ($, e, next) => {
     await store($, snapshot(e.context, e.rateLimits))
     return next(e)
@@ -88,6 +106,7 @@ export const register: Register = on => {
     const own = await next(e)
     const u = (await read($, usage)) ?? EMPTY
     const c = (await read($, cache)) ?? NO_CACHE
+    const m = (await read($, model)) ?? NO_MODEL
     const now = await $.clock.now()
     const { Box, Text } = $.ui.resolve(e)
     // The engine refuses a width on any Box holding its node, so only the row
@@ -95,13 +114,14 @@ export const register: Register = on => {
     // surfaces lay the hint out differently; they get the row unsized.
     const columns = e.surface === 'terminal' ? e.viewport?.columns : undefined
     const width = columns === undefined ? undefined : Math.max(columns - SIDE_GAPS, 0)
+    const segments = [...formatModel(m), ...formatUsage(u, c.last, now)]
 
     return (
       <Box flexDirection="column">
         {own}
         <Box key="usage-row" justifyContent="flex-end" width={width}>
           <Text color="gray">
-            {formatUsage(u, c.last, now).map(s => (s.color ? <Text color={s.color}>{s.text}</Text> : s.text))}
+            {segments.map(s => (s.color ? <Text color={s.color}>{s.text}</Text> : s.text))}
           </Text>
         </Box>
       </Box>

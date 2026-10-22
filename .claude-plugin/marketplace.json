@@ -8,7 +8,7 @@
     {
       "name": "usage-statusline",
       "source": "./plugins/usage-statusline",
-      "description": "Context usage, prompt-cache hit rate and 5h/7d rate limits with reset times, right-aligned under the prompt hint"
+      "description": "Model and effort, context usage, prompt-cache hit rate and 5h/7d rate limits with reset times, right-aligned under the prompt hint"
     },
     {
       "name": "slack-notify",

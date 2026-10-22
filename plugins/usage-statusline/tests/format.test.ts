@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { formatUsage } from '../hooks/format'
+import { formatModel, formatUsage, modelName } from '../hooks/format'
 import type { CacheReading, LocalTime, Segment, UsageSnapshot } from '../hooks/format'
 
 const NOW = Date.parse('2026-10-16T12:00:00Z') // Fri
@@ -162,5 +162,33 @@ describe('cache segment', () => {
 
   test('a turn cold by design stays gray', () => {
     expect(cacheOf(reading(3, 97_000, true))).toEqual({ text: 'cache 3% +97k', colored: [] })
+  })
+})
+
+describe('modelName', () => {
+  test('keeps the family, drops the version', () => {
+    expect(modelName('claude-opus-5-5')).toBe('Opus')
+    expect(modelName('claude-sonnet-5-5[1m]')).toBe('Sonnet')
+    expect(modelName('claude-3-5-haiku-20241022')).toBe('Haiku')
+    expect(modelName('us.anthropic.claude-fable-5-1-v1:0')).toBe('Fable')
+  })
+
+  test("another vendor's id keeps its words", () => {
+    expect(modelName('mistral-large-2411')).toBe('mistral large')
+  })
+})
+
+describe('formatModel', () => {
+  test('model and effort lead the row', () => {
+    expect(line(formatModel({ id: 'claude-opus-5-5', effort: 'high' }))).toBe('Opus (high) · ')
+  })
+
+  test('no effort yet, or none on the model', () => {
+    expect(line(formatModel({ id: 'claude-haiku-5-5', effort: null }))).toBe('Haiku · ')
+  })
+
+  test('nothing before the model is known', () => {
+    expect(formatModel(null)).toEqual([])
+    expect(formatModel({ id: null, effort: 'high' })).toEqual([])
   })
 })

@@ -16,8 +16,15 @@ export type CacheReading = { read: number; written: number; uncached: number; ex
 /** The cache segment's state: the last reading, and whether the next turn is cold by design. */
 export type CacheState = { last: CacheReading | null; coldNext: boolean }
 
+/**
+ * The main loop's model id and the effort its last request was sent with:
+ * a level, a thinking budget, or null before a request was made (or on a
+ * model without effort).
+ */
+export type ModelState = { id: string | null; effort: string | number | null }
+
 declare module 'claude-code' {
   interface PluginState {
-    'usage-statusline': { usage: UsageSnapshot | null; cache: CacheState }
+    'usage-statusline': { usage: UsageSnapshot | null; cache: CacheState; model: ModelState }
   }
 }
