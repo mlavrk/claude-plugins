@@ -14,6 +14,11 @@
       "name": "slack-notify",
       "source": "./plugins/slack-notify",
       "description": "Lets the agent message you in Slack through a webhook, when you ask it to"
+    },
+    {
+      "name": "subagent-model",
+      "source": "./plugins/subagent-model",
+      "description": "Adds each subagent's model and effort to its name in the subagent list, like [Sonnet high]"
     }
   ]
 }

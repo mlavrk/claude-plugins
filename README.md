@@ -102,6 +102,41 @@ To change the URL later: `/plugin configure slack-notify@mlavrk`.
 - Works in local sessions, including `/loop`. Needs `curl` and `jq`
   (macOS has both).
 
+### subagent-model
+
+A mod that adds each subagent's model and effort to its name, so the
+subagent list under the prompt (and the agent's completion notice) shows
+what it runs on:
+
+```
+● main
+○ Explore   Find statusline thresholds [Opus high]
+○ general-purpose   Check plugin manifests [Haiku low]
+```
+
+- The model is shown by family (`Opus`, `Sonnet`, `Haiku`), the effort as
+  the level (`low` … `max`) or the token budget.
+- A name is fixed when the subagent starts, before Claude Code resolves its
+  model. So the tag comes from the Agent call's own `model` and `effort`
+  when it sets them; otherwise from what that agent type actually ran on
+  last time, remembered across sessions. The first run of a type that sets
+  neither has no tag, and a remembered effort trails a change of your
+  session's effort by one run.
+- A fork shows your main model and its current effort.
+- Workflow agents and resumed agents are left as they are.
+- The tag is in the list's own color: mods can change the list's text, not
+  its colors.
+
+**Install**, at the prompt of a terminal session:
+
+```
+/plugin install subagent-model --marketplace mlavrk/claude-plugins
+```
+
+or from a shell: `claude plugin install subagent-model --marketplace mlavrk/claude-plugins`.
+
+**Requirements:** Claude Code 2.1.301 or newer (mods are early access).
+
 ## Adding a plugin or skill
 
 1. Create `plugins/<name>/` with `.claude-plugin/plugin.json`
@@ -121,6 +156,8 @@ claude plugin validate plugins/usage-statusline
 claude plugin test plugins/usage-statusline
 claude plugin validate plugins/slack-notify
 bash plugins/slack-notify/tests/send.test.sh
+claude plugin validate plugins/subagent-model
+claude plugin test plugins/subagent-model
 ```
 
 CI runs them on Ubuntu and macOS with a pinned Claude Code version.
